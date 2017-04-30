@@ -28,4 +28,4 @@ The code uses three libraries:
 
 * The ```2htdp/image``` library provides the ability to draw all graphics used in the game.
 * The ```2htdp/universe``` library is used to 
-* The ```net/uri-codec``` library is used to format parameters provided in API calls into an ASCII encoding used by Google Drive.
+* The ```lang/posn``` library is used to 
