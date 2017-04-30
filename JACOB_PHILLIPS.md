@@ -14,7 +14,7 @@ The spouts are the ladders, the sharks are the barrels and getting to the rainbo
 
 <img src="images/Release-Demo_gameplay.PNG" alt="Splash Screen" width="400"/> <img src="images/donkey-kong.jpg" alt="Splash Screen" width="400"/> 
 
-**Authorship note:** All of the code described here was written by myself or my partner Kelly Stilson (@stilsonkl)
+**Authorship note:** All of the code described here was written by myself unless stated otherwise.
 
 # Libraries Used
 The code uses three libraries:
