@@ -12,7 +12,7 @@ The user uses the arrow keys to avoid sharks and climb the spouts up to the rain
 
 The spouts are the ladders, the sharks are the barrels and getting to the rainbow is saving the princess.
 
-<img src="images/Release-Demo_gameplay.PNG" alt="Splash Screen" width="400"/> <img src="images/Release-Demo_gameplay.PNG" alt="Splash Screen" width="400"/> 
+<img src="images/Release-Demo_gameplay.PNG" alt="Splash Screen" width="400"/> <img src="images/donkey-kong.jpg" alt="Splash Screen" width="400"/> 
 
 **Authorship note:** All of the code described here was written by myself or my partner Kelly Stilson (@stilsonkl)
 
