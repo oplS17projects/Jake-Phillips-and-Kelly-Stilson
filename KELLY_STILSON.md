@@ -4,7 +4,7 @@
 Our project is a game in the style/inspired by Donkey Kong. 
 The first screen that displays is a splash screen, where it allows the player to select the difficulty for the game, view the help screens, or start the game. The help screens display instructions for game-play, movement keys, the goal and different aspects of game play.
 
-<img src="images/Release-Demo.PNG" alt="Splash Screen" width="300"/> <img src="images/Help_screen.PNG" alt="Help Screen" width="300"/>
+<img src="images/Release-Demo.PNG" alt="Splash Screen" width="300"/>   <img src="images/Help_screen.PNG" alt="Help Screen" width="300"/>
 
 Once starting the game, the goal is to get the character sprite up the water spouts to the rainbow, without encountering any sharks. If the character gets too close to a shark, it dies, loses a life, and starts back at the start postition of the stage. 
 If the character reaches the rainbow, the player advances to the next stage. If the player loses all their lives it is game-over, and they are returned to the splash-screen. If the player continues to win, the stages get more difficult. The number of sharks increases, their direction varies, and their speed increases. The player is however, offered super-powers, which assist them in the more difficult levels. An armored horn makes the character impervious to shark attacks, and catching a fish give the player an extra life. 
@@ -33,7 +33,7 @@ If a player is just too-good, they advance from the normal difficulty to sharks-
 - lang/posn : provided the `make-posn` constructor, as well as equality tests, and accessors for the x and y portions of the posn
 
 
-### Using Recursion and Map to build the game board:
+### 1. Using Recursion and Map to build the game board:
 
 A couple recursive functions were used to create the board, or the background of each stage. The background is a list of tile objects implemented in such a way as to form a matrix, with each tile having an x and y position on the board. To create a tile object, the program needs to know if it is a spout tile (#t/#f) and its position on the background. It stored the position of the tile so that it can be referenced during gameplay to verify that the player is on, or near, a water spout tile in order to move up to the next 'floor.'
 
@@ -91,7 +91,7 @@ This board, a list of tile objects, is a part of the stage and later drawn, prod
 <img src="images/tile-frame.PNG" alt="Background tiles" width="300"/> 
 
 
-### Drawing Images using Recursion
+### 2. Drawing Images using Recursion
 The tornado base of the Sharknado is actually an ellipse drawn recursively based on the number passed to the function.
 *Note: Again, this was done so that we could scale the image based on the window size, but without having to stretch the image, which would distort it*
 
@@ -117,7 +117,7 @@ The sharkfins are placed on the tornado afterwards.
 These images aren't scaled, but varying recursion depths of 30, 50 and 100.
 
 
-### Filtering out unwanted elements
+### 3. Filtering out unwanted elements
 In the `BEHOLD-stage` funtion that renders all the images for each stage, the list of components is assigned, and then the list of posns where those images need to be drawn in a let\* statement. Because the super-powers given to the player should only appear once the player reaches stage 5, I needed some way of including the super-power images and posns only when necessary.
 The images of the super-horn and the fish should only be included in the list of images if the stage is `>= 5` and the player hasn't already claimed the super-power for that stage. Once the player has claimed the super-power, the posn of that image is modified to #f. 
 Before placing the images, I used `filter` to remove any empty lists from the `stage-comp` list, and any #f values from the `stage-posn` list.
@@ -165,7 +165,7 @@ Before placing the images, I used `filter` to remove any empty lists from the `s
  ```
 The enemies, or list of sharks, was created using a map function based on the difficulty level and stage number.
 
-### Use foldl in collision detection
+### 4. Use foldl in collision detection
 The `2htdp/images` did not provide an intersect function to test if one image overlaped another. So I wrote a collision detection function.
 The `object_collision?` function that tested if Walley's position was close enough to an object, took Walley, and the object as args. It determined if one of the sides if the object's 'bounding box' were between the sides of Walley's 'bounding box.' If the sides overlapped then it returned true, if not, then returned false.
 The difficulty came when I needed to know if Walley collides with a shark, and because at each stage there are differing numbers or sharks, I needed a function to check all of the sharks, and return just one value. I didn't need to know which shark, just that he hit one of them, or none of them. So, I could either use recursion that would stop once the return of a collision test was #t, or check them all, and accumulate the results.
@@ -193,8 +193,8 @@ I decided to use `foldl` to pass each shark in the `list-of-sharks` for that sta
 ```
 *I did learn at this point, that many of the comparision procedures could take several arguments, which meant I could compare several values all at once, without having `(and (>= x y) (>= y z))`. Instead `>= arg_1 arg_2 ag_3` checks if all the args are in descending order*
 
-### State Modificiation and Data Abstraction
-Since we used the `big-bang` function to create and drive our game, we needed to define the world. I defined the world using a struct because it automatically came with a constructor, type-checking and accessors for each field.
+### 5. State Modificiation and Data Abstraction
+Since we used the `big-bang` function to create and drive our game, we needed to define the world. I defined the world using a struct because it automatically came with a constructor, type-checking and accessors for each field. *I realize that using a struct does more than this, but those are the only things we used utilized*
 ```racket
 (define-struct/contract world ([state (or/c 'splash_screen
                                             'start
@@ -213,24 +213,25 @@ Since we used the `big-bang` function to create and drive our game, we needed to
 ```
 I defined most of the objects we needed for the game as structs in this manner; world, player, stage, tile, shark, super-powers.
 
-Once the struct was defined, we could construct a new world using the constructor, and passing a value for each field:
-``` racket (make-world 'start 
-                        0 
-                        (make-player 'swimming START "left" 3)
-                        1
-                        0
-                        (make-stage 'start 
-                                     1
-                                     (draw-enemies difficulty_level 1 1)
-                                     happy-walley
-                                     (draw-HUD 3 difficulty_level 0)
-                                     (build-board difficulty_level)
-                                     (make-super-powers #f #f #f))))
+Once the struct was defined, I could construct a new world using the constructor, and passing a value for each field:
+``` racket 
+(make-world 'start 
+            0 
+            (make-player 'swimming START "left" 3)
+            1
+            0
+            (make-stage 'start 
+                         1
+                         (draw-enemies difficulty_level 1 1)
+                         happy-walley
+                         (draw-HUD 3 difficulty_level 0)
+                         (build-board difficulty_level)
+                         (make-super-powers #f #f #f))))
 ``` 
 
 Once bound to a designator, we could also access the fields easily using the name of the field. In the following excerpt, s is the world passed to the function, and all the let\* statements are just accessing the fields we need to change for that particular function.
-`(world-difficulty s)` returns the value in the difficulty field of the world s.
-In this case, the  `advance-stage` function was called when the player reached the rainbow and we need to create the next stage. After all the changes are made, we just call the `make-world` constuctor to return a new world.
+`(world-difficulty s)` returns the value in the `difficulty` field of the world `s`.
+In this case, the `advance-stage` function was called when the player reached the rainbow and we need to create the next stage. After all the changes are made, we just call the `make-world` constuctor to return a new world.
 ```racket
 (define (advance-stage s)
   (let* ([stage_n (add1 (stage_number (world-difficulty s)))]
@@ -253,4 +254,5 @@ In this case, the  `advance-stage` function was called when the player reached t
 ```
 Most of the procedures that are applied to the world(on-key, on-pad, etc) actually consume the world as it exists at that point in time, and expects the procedure to output a new world. So even though it seems like we've called the `make-world` constructor hundreds of times, there aren't actually that many worlds, because they are getting consumed and then a new one made, then consumed, over and over.
 
-I defined most of the objects we needed for the game as structs in this manner; world, player, stage, tile, shark, super-powers.
+
+
