@@ -2,9 +2,9 @@
 ### Kelly Stilson
 ### Overview
 Our project is a game in the style/inspired by Donkey Kong. 
-The first screen that displays is a splash screen, where it allows the player to select the difficulty for the game, view the help screens, or start the game. The help screens display instructions for game-play, movement keys, the goal and different aspects of game play.
+The first screen that displays is a splash screen, where it allows the player to select the difficulty for the game, view the help screens, or start the game. The help screens display instructions for game-play, movement keys, the goal and different aspects of the game.
 
-<img src="images/Release-Demo.PNG" alt="Splash Screen" width="300"/>   <img src="images/Help_screen.PNG" alt="Help Screen" width="300"/>
+<img src="images/Release-Demo.PNG" alt="Splash Screen" width="300"/><img src="images/Help_screen.PNG" alt="Help Screen" width="300"/><img src="images/Help_screen_2.PNG" alt="Help Screen" width="300"/>  
 
 Once starting the game, the goal is to get the character sprite up the water spouts to the rainbow, without encountering any sharks. If the character gets too close to a shark, it dies, loses a life, and starts back at the start postition of the stage. 
 If the character reaches the rainbow, the player advances to the next stage. If the player loses all their lives it is game-over, and they are returned to the splash-screen. If the player continues to win, the stages get more difficult. The number of sharks increases, their direction varies, and their speed increases. The player is however, offered super-powers, which assist them in the more difficult levels. An armored horn makes the character impervious to shark attacks, and catching a fish give the player an extra life. 
@@ -53,7 +53,7 @@ The stage starts out as a list of integers which represent the numbered position
      (else (list 14 18 24 29)))))  
                                          
 (define-struct/contract tile ([up? boolean?] 
-                             [position any/c]) 
+                             [position (or/c #f posn?)]) 
  #:transparent)                                
 ```                                            
 The tile-posn-list is a list of posn objects created using two recursive functions. The first being build-posn-list, which takes an x value, y value and a list. This function creates the 'rows' of the board. If the y-value argument is too small to fit another tile, then the list is returned, if not, then it calls itself again, altering the y-value and calling the make-wide function. 
@@ -163,14 +163,14 @@ Before placing the images, I used `filter` to remove any empty lists from the `s
                                   (filter (lambda (e) (not (eq? #f e))) stage-posn)
                                   BACKGROUND)))))
  ```
-The enemies, or list of sharks, was created using a map function based on the difficulty level and stage number.
 
 ### 4. Use foldl in collision detection
 The `2htdp/images` did not provide an intersect function to test if one image overlaped another. So I wrote a collision detection function.
 The `object_collision?` function that tested if Walley's position was close enough to an object, took Walley, and the object as args. It determined if one of the sides if the object's 'bounding box' were between the sides of Walley's 'bounding box.' If the sides overlapped then it returned true, if not, then returned false.
 The difficulty came when I needed to know if Walley collides with a shark, and because at each stage there are differing numbers or sharks, I needed a function to check all of the sharks, and return just one value. I didn't need to know which shark, just that he hit one of them, or none of them. So, I could either use recursion that would stop once the return of a collision test was #t, or check them all, and accumulate the results.
 I decided to use `foldl` to pass each shark in the `list-of-sharks` for that stage, to the collision function and return a #t/#f, which was accumulated with an `or` with the result of the previous test, and then returned.
-```; return true/false
+```racket
+; return true/false
 (define (object_collision? player object)
   (let* ([walley_left (posn-x player)]
          [walley_right (+ walley_left 110)]
@@ -194,7 +194,7 @@ I decided to use `foldl` to pass each shark in the `list-of-sharks` for that sta
 *I did learn at this point, that many of the comparision procedures could take several arguments, which meant I could compare several values all at once, without having `(and (>= x y) (>= y z))`. Instead `>= arg_1 arg_2 ag_3` checks if all the args are in descending order*
 
 ### 5. State Modificiation and Data Abstraction
-Since we used the `big-bang` function to create and drive our game, we needed to define the world. I defined the world using a struct because it automatically came with a constructor, type-checking and accessors for each field. *I realize that using a struct does more than this, but those are the only things we used utilized*
+Since we used the `big-bang` function to create and drive our game, we needed to define the world. I defined the world using a struct because it automatically came with a constructor, type-checking and accessors for each field. *I realize that using a struct does more than this, but those are the only things we used utilized* I included contracts for each field for the added benefit of type-checking, which was a life-saver during troubleshooting.
 ```racket
 (define-struct/contract world ([state (or/c 'splash_screen
                                             'start
@@ -213,7 +213,7 @@ Since we used the `big-bang` function to create and drive our game, we needed to
 ```
 I defined most of the objects we needed for the game as structs in this manner; world, player, stage, tile, shark, super-powers.
 
-Once the struct was defined, I could construct a new world using the constructor, and passing a value for each field:
+I could then construct a new world using the constructor, and passing a value for each field:
 ``` racket 
 (make-world 'start 
             0 
