@@ -527,7 +527,7 @@
         (make-posn (+ posn-updated-x (posn-x WINDOW)) posn-updated-y)
         (make-posn (modulo posn-updated-x (posn-x WINDOW)) posn-updated-y))))
 
-(define (move_walley s direction)
+(define (move-player s direction)
   (let ((posn-offset-x (cond ((eq? direction "right") STEP_SIZE_X)
                              ((eq? direction "left") (* -1 STEP_SIZE_X)) 
                              (else 0)))
@@ -568,8 +568,6 @@
 ; returns new position as int type
 (define (scroll-left t)
   (- 700 (modulo (+ t (+ 200 (posn-x WINDOW))) (+ 200 (posn-x WINDOW)))))
-
-
 
 ;**************
 ; Player Struct
@@ -716,7 +714,8 @@
                 (make-player (player-state player) (player-position player) (player-direction player) (add1 (player-lives player)))
                 difficulty_level score
                 (make-stage game-state difficulty_level (stage-Enemies stage) (stage-Walley stage) (stage-HUD stage) (stage-board stage)
-                            (make-super-powers #t (super-powers-armor-pos super-powers) #f)))))
+                            (make-super-powers #t (super-powers-armor-pos super-powers) #f))
+                (world-inputHandler s))))
 
 ;;function to make-world where everything is the same, but the super-horn is gone
 ;;changes walley to wearing the super-horn
@@ -735,7 +734,8 @@
                 (make-player 'super (player-position player) (player-direction player) (player-lives player))
                 difficulty_level score
                 (make-stage game-state difficulty_level (stage-Enemies stage) super-walley (stage-HUD stage) (stage-board stage)
-                            (make-super-powers #t #f (super-powers-fish-pos super-powers))))))
+                            (make-super-powers #t #f (super-powers-fish-pos super-powers)))
+                (world-inputHandler s))))
 
 
 ;************
@@ -980,7 +980,7 @@
                          (swim (player-state player) (player-direction player) time)
                          (draw-HUD (player-lives player) difficulty_level score)
                          (build-board difficulty_level) sp)])
-  (make-world 'start 0 player difficulty_level score stage)))
+  (make-world 'start 0 player difficulty_level score stage (world-inputHandler s))))
 
 ;;function to return stage number from difficulty level
 (define (stage_number d)
@@ -1003,15 +1003,126 @@
 ;;function to revert to first stage
 (define (stage-reset d) (difficulty-from-stage d))
 
+;**************
+;INPUT HANDLERS
+;**************
+(define paused-input-handler
+   (lambda (wrld input)
+    (cond ((or (key=? input "c") (key=? input "C")) (make-world 'playing (world-time wrld) (world-player wrld) (world-difficulty wrld) (world-score wrld) (world-stage wrld) playing-input-handler))
+          ((or (key=? input "q") (key=? input "Q")) (make-world 'splash_screen 0 (make-player 'swimming START "left" 3) (stage-reset (world-difficulty wrld)) 0 (world-stage wrld) splash-input-handler))
+          (else wrld))))
+
+(define playing-input-handler
+   (lambda (wrld input)
+     (let* ([game-state (world-state wrld)]
+         [stage_n (stage_number (world-difficulty wrld))]
+         [difficulty_level (world-difficulty wrld)]
+         [time (world-time wrld)]
+         [player (world-player wrld)]
+         [score (world-score wrld)]
+         [stage (world-stage wrld)]
+         [super-powers (stage-super-powers stage)])
+     (cond ((object_collision? (player-position player) (make-posn 40 100)) (advance-stage wrld))
+           ((and (super-powers-fish-pos super-powers) (object_collision? (player-position player) (super-powers-fish-pos super-powers))) (found-fish wrld))
+           ((and (super-powers-armor-pos super-powers) (object_collision? (player-position player) (super-powers-armor-pos super-powers))) (found-armor wrld))
+           ((and (eq? (player-state player) 'swimming) (shark_collision? (player-position player) (stage-Enemies stage)))
+            (if (= (player-lives player) 0) (make-world 'lost  0 player difficulty_level score stage gameover-input-handler)
+                (make-world 'start 0 (make-player (player-state player) START "left" (- (player-lives player) 1))
+                            difficulty_level score
+                            (make-stage 'start 1 (re-draw-enemies wrld) happy-walley (draw-HUD (player-lives player) stage_n score) (build-board stage_n) super-powers)
+                            (world-inputHandler wrld))))
+           ((pad=? input "rshift") (make-world 'paused 0 player difficulty_level score stage paused-input-handler))
+           ((pad=? input "shift")  (make-world 'paused 0 player difficulty_level score stage paused-input-handler))
+           ((and (pad=? input "right")(not (player-climbing-spout wrld)))  (make-world 'playing time (move-player wrld "right") difficulty_level score stage (world-inputHandler wrld)))
+           ((and (pad=? input "left") (not (player-climbing-spout wrld))) (make-world 'playing time (move-player wrld "left")  difficulty_level score stage (world-inputHandler wrld)))
+           ((pad=? input "up")     (make-world 'playing time (move-player wrld "up")    difficulty_level score stage (world-inputHandler wrld)))
+           ((pad=? input "d")      (make-world 'playing time (move-player wrld "right") difficulty_level score stage (world-inputHandler wrld)))
+           ((pad=? input "a")      (make-world 'playing time (move-player wrld "left")  difficulty_level score stage (world-inputHandler wrld)))
+           
+           ;;test for win/stage prog- w for win-test, s for die test
+           ((and (pad=? input "w") (= difficulty_level 900)
+                           (make-world 'won 0 player 1 score stage gameover-input-handler)))
+           ((pad=? input "w") (advance-stage wrld))
+           ;;put player back at Start, decrease lives
+           ((and (pad=? input "s") (= (player-lives player) 0))
+                           (make-world 'lost  0 player difficulty_level score stage gameover-input-handler))
+           ((pad=? input "s") (make-world 'start 0 (make-player (player-state player) START "left" (- (player-lives player) 1))
+                                       difficulty_level score stage (world-inputHandler wrld)))
+           (else wrld)))))
+
+(define splash-input-handler
+   (lambda (wrld input)
+     (let* ([game-state (world-state wrld)]
+         [stage_n (stage_number (world-difficulty wrld))]
+         [difficulty_level (world-difficulty wrld)]
+         [time (world-time wrld)]
+         [player (world-player wrld)]
+         [score (world-score wrld)]
+         [stage (world-stage wrld)]
+         [super-powers (stage-super-powers stage)])
+       (cond
+         ((pad=? input " ") (make-world 'start 0 (make-player 'swimming START "left" 3) (world-difficulty wrld) 0
+                                             (make-stage 'start 1
+                                                        (draw-enemies (world-difficulty wrld) 1 1)
+                                                        happy-walley
+                                                        (draw-HUD 3 (world-difficulty wrld) 0)
+                                                        (build-board (world-difficulty wrld))
+                                                        (make-super-powers #f #f #f))
+                                                        playing-input-handler))
+         ((pad=? input "rshift") (make-world 'help_screen 0 player (world-difficulty wrld) score stage help-input-handler))
+         ((pad=? input "shift")  (make-world 'help_screen 0 player (world-difficulty wrld) score stage help-input-handler))
+         ((pad=? input "up")   (make-world-decrease-difficulty wrld)) ; invert up/down to match scroll direction
+         ((pad=? input "down") (make-world-increase-difficulty wrld)) ; invert up/down to match scroll direction
+         (else wrld)))))
+
+(define help-input-handler
+   (lambda (wrld input)
+     (let* ([game-state (world-state wrld)]
+         [stage_n (stage_number (world-difficulty wrld))]
+         [difficulty_level (world-difficulty wrld)]
+         [time (world-time wrld)]
+         [player (world-player wrld)]
+         [score (world-score wrld)]
+         [stage (world-stage wrld)]
+         [super-powers (stage-super-powers stage)])
+       (cond
+    ((equal? game-state 'help_screen)
+     (cond ((pad=? input "rshift") (make-world 'splash_screen 0 player difficulty_level score stage splash-input-handler))
+           ((pad=? input "shift")  (make-world 'splash_screen 0 player difficulty_level score stage splash-input-handler))
+           ((pad=? input "right")  (make-world 'help_screen_2 0 player difficulty_level score stage help-input-handler))
+           (else wrld)))
+    ((equal? game-state 'help_screen_2)
+     (cond ((pad=? input "rshift") (make-world 'splash_screen 0 player difficulty_level score stage splash-input-handler))
+           ((pad=? input "shift")  (make-world 'splash_screen 0 player difficulty_level score stage splash-input-handler))
+           ((pad=? input "left")   (make-world 'help_screen   0 player difficulty_level score stage help-input-handler))
+           (else wrld)))))))
+
+(define gameover-input-handler
+   (lambda (wrld input)
+     (let* ([game-state (world-state wrld)]
+         [stage_n (stage_number (world-difficulty wrld))]
+         [difficulty_level (world-difficulty wrld)]
+         [time (world-time wrld)]
+         [player (world-player wrld)]
+         [score (world-score wrld)]
+         [stage (world-stage wrld)]
+         [super-powers (stage-super-powers stage)])
+     (cond ((pad=? input " ")      (make-world 'playing 0 (make-player 'swimming START "left" 3) (stage-reset difficulty_level) 0 stage playing-input-handler))
+           ((pad=? input "rshift") (make-world 'help_screen 0 player difficulty_level score stage help-input-handler))
+           ((pad=? input "shift")  (make-world 'help_screen 0 player difficulty_level score stage help-input-handler))
+           ((pad=? input "up")     (make-world-decrease-difficulty wrld)) ; invert up/down to match scroll direction
+           ((pad=? input "down")   (make-world-increase-difficulty wrld)) ; invert up/down to match scroll direction
+           (else wrld)))))
+  
 ;************
 ;WORLD-STRUCT
 ;************
 ;;defines and contracts the world object
 ;;needs to be expanded to include: stage-board(board object), player(player object), player-posn(posn)
 ;;this definition type automatically creates:
-;  constructor= (make-world state time player difficulty score stage)
+;  constructor= (make-world state time player difficulty score stage inputHandler)
 ;  eq test= world?
-;  fields= world-state, world-player
+;  fields= world-state, world-player, world-time, world-difficulty, world-score, world-stage, world-inputHandler
 
 (define-struct/contract world ([state (or/c 'splash_screen
                                             'start
@@ -1025,7 +1136,8 @@
                                [player (or/c #f player?)]
                                [difficulty (and/c natural-number/c (<=/c 1000))]
                                [score (and/c natural-number/c (>=/c 0))]
-                               [stage (or/c #f stage?)])
+                               [stage (or/c #f stage?)]
+                               [inputHandler (-> any/c (or/c pad-event? key-event?) any/c)]) ;cannot specify world? in world structure declaration
   #:transparent)
 
 ;;advance time function
@@ -1044,28 +1156,29 @@
          [stage (make-stage 'start difficulty_level (draw-enemies difficulty_level stage_n time)
                          (swim (player-state player) (player-direction player) time)
                          (draw-HUD (player-lives player) difficulty_level score)
-                         (build-board difficulty_level) sp)])
+                         (build-board difficulty_level) sp)]
+         [handler (world-inputHandler s)])
   (cond ((not (eq? (world-state s) 'playing))
-         (make-world (world-state s) (if (= 500 (world-time s)) 0 time) player difficulty_level score stage))
+         (make-world (world-state s) (if (= 500 (world-time s)) 0 time) player difficulty_level score stage handler))
         (else (make-world 'playing time player difficulty_level score
                           (make-stage 'playing difficulty_level (re-draw-enemies s)
                                 (swim (player-state player) (player-direction player) time)
                                 (draw-HUD (player-lives player) difficulty_level score)
-                                (build-board difficulty_level) sp))))))
+                                (build-board difficulty_level) sp) handler)))))
 
 (define (make-world-increase-difficulty s)
         (let* ((current (difficulty-from-stage (world-difficulty s)))
                (updated (cond ((eq? current 1) 10)
                               ((eq? current 10) 100)
                               (else 1))))
-              (make-world (world-state s) (world-time s) (world-player s) updated (world-score s) (world-stage s))))
+              (make-world (world-state s) (world-time s) (world-player s) updated (world-score s) (world-stage s) (world-inputHandler s))))
 
 (define (make-world-decrease-difficulty s)
         (let* ((current (difficulty-from-stage (world-difficulty s)))
                (updated (cond ((eq? current 1) 100) ; wrap easy => hard
                               ((eq? current 10) 1)
                               (else 10))))
-              (make-world (world-state s) (world-time s) (world-player s) updated (world-score s) (world-stage s))))
+              (make-world (world-state s) (world-time s) (world-player s) updated (world-score s) (world-stage s) (world-inputHandler s))))
 
 ;;make worlds
 ;;make-initial-world(create the splash_screen)
@@ -1083,7 +1196,8 @@
                           happy-walley
                           (draw-HUD 3 1 0)
                           (build-board 1)
-                          (make-super-powers #f #f #f))))
+                          (make-super-powers #f #f #f))
+              splash-input-handler))
 
 ;;render-world
 ;;draws the world based on the state of the world
@@ -1276,100 +1390,12 @@
 ;Key handler
 ;**************
 ;change handles keyboard input from user
-(define (keyboard-handler s ke)
-  (cond
-   ;;AT PAUSE SCREEN
-   ((equal? (world-state s) 'paused)
-    (cond ((or (key=? ke "c") (key=? ke "C")) (make-world 'playing (world-time s) (world-player s) (world-difficulty s) (world-score s) (world-stage s)))
-          ((or (key=? ke "q") (key=? ke "Q")) (make-world 'splash_screen 0 (make-player 'swimming START "left" 3) (stage-reset (world-difficulty s)) 0 (world-stage s)))
-          (else s)))
-   ;;Other screens use pad only
-   (else s)))
+(define (keyboard-handler s ke) ((world-inputHandler s) s ke))
 
 ;**************
 ;Pad handler
 ;**************
-(define (pad-handler s pe)
-  (let* ([game-state (world-state s)]
-         [stage_n (stage_number (world-difficulty s))]
-         [difficulty_level (world-difficulty s)]
-         [time (world-time s)]
-         [player (world-player s)]
-         [score (world-score s)]
-         [stage (world-stage s)]
-         [super-powers (stage-super-powers stage)])
-  (cond
-    ;;AT SPLASH-SCREEN
-    ((eq? game-state 'splash_screen)
-     (cond ((pad=? pe " ")      (make-world 'start 0
-                                             (make-player 'swimming START "left" 3)
-                                             difficulty_level 0
-                                             (make-stage 'start 1
-                                                        (draw-enemies difficulty_level 1 1)
-                                                        happy-walley
-                                                        (draw-HUD 3 difficulty_level 0)
-                                                        (build-board difficulty_level)
-                                                        (make-super-powers #f #f #f))))
-           ((pad=? pe "rshift") (make-world 'help_screen 0 player difficulty_level score stage))
-           ((pad=? pe "shift")  (make-world 'help_screen 0 player difficulty_level score stage))
-           ((pad=? pe "up")   (make-world-decrease-difficulty s)) ; invert up/down to match scroll direction
-           ((pad=? pe "down") (make-world-increase-difficulty s)) ; invert up/down to match scroll direction
-           (else s)))
-    
-    ;;AT HELP SCREEN(S)
-    ((equal? game-state 'help_screen)
-     (cond ((pad=? pe "rshift") (make-world 'splash_screen 0 player difficulty_level score stage))
-           ((pad=? pe "shift")  (make-world 'splash_screen 0 player difficulty_level score stage))
-           ((pad=? pe "right")  (make-world 'help_screen_2 0 player difficulty_level score stage))
-           (else s)))
-    ((equal? game-state 'help_screen_2)
-     (cond ((pad=? pe "rshift") (make-world 'splash_screen 0 player difficulty_level score stage))
-           ((pad=? pe "shift")  (make-world 'splash_screen 0 player difficulty_level score stage))
-           ((pad=? pe "left")   (make-world 'help_screen   0 player difficulty_level score stage))
-           (else s)))
-    
-    ;;AT PLAYING SCREEN
-    ((or (equal? game-state 'playing) (equal? game-state 'start))
-     (cond ((object_collision? (player-position player) (make-posn 40 100)) (advance-stage s))
-           ((and (super-powers-fish-pos super-powers) (object_collision? (player-position player) (super-powers-fish-pos super-powers))) (found-fish s))
-           ((and (super-powers-armor-pos super-powers) (object_collision? (player-position player) (super-powers-armor-pos super-powers))) (found-armor s))
-           ((and (eq? (player-state player) 'swimming) (shark_collision? (player-position player) (stage-Enemies stage)))
-            (if (= (player-lives player) 0) (make-world 'lost  0 player difficulty_level score stage)
-                (make-world 'start 0 (make-player (player-state player) START "left" (- (player-lives player) 1))
-                            difficulty_level score
-                            (make-stage 'start 1 (re-draw-enemies s) happy-walley (draw-HUD (player-lives player) stage_n score) (build-board stage_n) super-powers))))
-           ((pad=? pe "rshift") (make-world 'paused 0 player difficulty_level score stage))
-           ((pad=? pe "shift")  (make-world 'paused 0 player difficulty_level score stage))
-           ((and (pad=? pe "right")(not (player-climbing-spout s)))  (make-world 'playing time (move_walley s "right") difficulty_level score stage))
-           ((and (pad=? pe "left") (not (player-climbing-spout s))) (make-world 'playing time (move_walley s "left")  difficulty_level score stage))
-           ((pad=? pe "up")     (make-world 'playing time (move_walley s "up")    difficulty_level score stage))
-           ;((pad=? pe "down")   (make-world 'playing time (move_walley s "down")  difficulty_level score stage))
-           ((pad=? pe "d")      (make-world 'playing time (move_walley s "right") difficulty_level score stage))
-           ((pad=? pe "a")      (make-world 'playing time (move_walley s "left")  difficulty_level score stage))
-           
-           ;;test for win/stage prog- w for win-test, s for die test
-           ((and (pad=? pe "w") (= difficulty_level 900)
-                           (make-world 'won 0 player 1 score stage)))
-           ((pad=? pe "w") (advance-stage s))
-           ;;put player back at Start, decrease lives
-           ((and (pad=? pe "s") (= (player-lives player) 0))
-                           (make-world 'lost  0 player difficulty_level score stage))
-           ((pad=? pe "s") (make-world 'start 0 (make-player (player-state player) START "left" (- (player-lives player) 1))
-                                       difficulty_level score stage))
-           (else s)))
-    ;;WON or LOST
-    ((or (equal? game-state 'won) (equal? game-state 'lost))
-     (cond ((pad=? pe " ")      (make-world 'playing 0 (make-player 'swimming START "left" 3) (stage-reset difficulty_level) 0 stage))
-           ((pad=? pe "rshift") (make-world 'help_screen 0 player difficulty_level score stage))
-           ((pad=? pe "shift")  (make-world 'help_screen 0 player difficulty_level score stage))
-           ((pad=? pe "up")     (make-world-decrease-difficulty s)) ; invert up/down to match scroll direction
-           ((pad=? pe "down")   (make-world-increase-difficulty s)) ; invert up/down to match scroll direction
-           (else s)))
-   ;;AT PAUSE SCREEN
-    ;Key Handler used
-    
-   (else s) ; unsupported world-state
-   )))
+(define (pad-handler s pe) ((world-inputHandler s) s pe))
 
 ;;***********
 ;;main driver
