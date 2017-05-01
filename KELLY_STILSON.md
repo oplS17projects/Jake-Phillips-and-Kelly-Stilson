@@ -4,7 +4,7 @@
 Our project is a game in the style/inspired by Donkey Kong. 
 The first screen that displays is a splash screen, where it allows the player to select the difficulty for the game, view the help screens, or start the game. The help screens display instructions for game-play, movement keys, the goal and different aspects of the game.
 
-<img src="images/Release-Demo.PNG" alt="Splash Screen" width="300"/><img src="images/Help_screen.PNG" alt="Help Screen" width="300"/><img src="images/Help_screen_2.PNG" alt="Help Screen" width="300"/>  
+<img src="images/Release-Demo.PNG" alt="Splash Screen" width="250"/><img src="images/Help_screen.PNG" alt="Help Screen" width="250"/><img src="images/Help_screen_2.PNG" alt="Help Screen" width="250"/>  
 
 Once starting the game, the goal is to get the character sprite up the water spouts to the rainbow, without encountering any sharks. If the character gets too close to a shark, it dies, loses a life, and starts back at the start postition of the stage. 
 If the character reaches the rainbow, the player advances to the next stage. If the player loses all their lives it is game-over, and they are returned to the splash-screen. If the player continues to win, the stages get more difficult. The number of sharks increases, their direction varies, and their speed increases. The player is however, offered super-powers, which assist them in the more difficult levels. An armored horn makes the character impervious to shark attacks, and catching a fish give the player an extra life. 
