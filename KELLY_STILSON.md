@@ -4,12 +4,14 @@
 Our project is a game in the style/inspired by Donkey Kong. 
 The first screen that displays is a splash screen, where it allows the player to select the difficulty for the game, view the help screens, or start the game. The help screens display instructions for game-play, movement keys, the goal and different aspects of the game.
 
-<img src="images/Release-Demo.PNG" alt="Splash Screen" width="250"/><img src="images/Help_screen.PNG" alt="Help Screen" width="250"/><img src="images/Help_screen_2.PNG" alt="Help Screen" width="250"/>  
+<img src="images/Release-Demo.PNG" alt="Splash Screen" width="270"/><img src="images/Help_screen.PNG" alt="Help Screen" width="270"/><img src="images/Help_screen_2.PNG" alt="Help Screen" width="270"/>  
 
 Once starting the game, the goal is to get the character sprite up the water spouts to the rainbow, without encountering any sharks. If the character gets too close to a shark, it dies, loses a life, and starts back at the start postition of the stage. 
 If the character reaches the rainbow, the player advances to the next stage. If the player loses all their lives it is game-over, and they are returned to the splash-screen. If the player continues to win, the stages get more difficult. The number of sharks increases, their direction varies, and their speed increases. The player is however, offered super-powers, which assist them in the more difficult levels. An armored horn makes the character impervious to shark attacks, and catching a fish give the player an extra life. 
 If a player is just too-good, they advance from the normal difficulty to sharks-with-laser-beams, which can kill the character from farther away. The next difficulty level is Sharknado, where a tornado of sharks drops random sharks on the stage.
 
+Authorship Note:
+All of the code referenced here was written personally, by me, and was copied from the racket file prior to changes my partner committed at 10:15 PM on April 30th.
 ### Libraries used:
 ```racket
 (require 2htdp/image)
@@ -140,7 +142,7 @@ Before placing the images, I used `filter` to remove any empty lists from the `s
                                 (draw-HUD (player-lives player) difficulty_level score)
                                 (build-board difficulty_level) sp)]
                 [stage-comp (append (list (scale (if(eq? (player-state player) 'super) 5/9 1/2)
-                                                 (swim (player-state player) (player-direction player) time))
+                                    (swim (player-state player) (player-direction player) time))
                                     (rainbow time)
                                     (stage-HUD st))
                                     (if(super-powers-state sp) (list (if(super-powers-armor-pos sp) (scale 2/3 (super-horn time)) '())
