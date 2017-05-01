@@ -29,22 +29,47 @@ The code uses three libraries:
 * The ```2htdp/universe``` library is used to 
 * The ```lang/posn``` library is used to 
 
-## 1. Pad Handler
+## 1. Applying Functional Approaches for handling user input
 
+The world structure recieves a lambda that determines how the user input will be processed. 
 ```
-((pad=? pe "rshift") (make-world 'paused 0 player difficulty_level score stage))
-((pad=? pe "shift")  (make-world 'paused 0 player difficulty_level score stage))
-((and (pad=? pe "right")(not (player-climbing-spout s)))  (make-world 'playing time (move_walley s "right") difficulty_level score stage))
-((and (pad=? pe "left") (not (player-climbing-spout s))) (make-world 'playing time (move_walley s "left")  difficulty_level score stage))
-((pad=? pe "up")     (make-world 'playing time (move_walley s "up")    difficulty_level score stage))
-((pad=? pe "d")      (make-world 'playing time (move_walley s "right") difficulty_level score stage))
-((pad=? pe "a")      (make-world 'playing time (move_walley s "left")  difficulty_level score stage))
+(define-struct/contract world (... [inputHandler (-> any/c (or/c pad-event? key-event?) any/c)])
 ```
- 
-## 2. Move Walley Function
+The world structure's inputHandler is envoked by the pad-handler call back, which is invoked by big bang's on-pad event. 
+```
+ (define (main)
+  (big-bang (make-water-world)
+  ...
+    [on-pad pad-handler]
+   ...)
+```
+```
+(define (pad-handler s pe) ((world-inputHandler s) s pe))
+```
+An example of a world-inputHandler is the playing-input-handler.
+```
+(define playing-input-handler
+   (lambda (wrld input)
+     (cond ...
+           ((pad=? input "rshift") (make-world 'paused 0 player difficulty_level score stage paused-input-handler))
+           ...
+           (else wrld)))))
+```
+The world-inputHandler is assigned in the world constructor. 
+```
+(define gameover-input-handler
+   (lambda (wrld input)
+     ...
+     (cond ((pad=? input " ")      (make-world 'playing 0 (make-player 'swimming START "left" 3) (stage-reset difficulty_level) 0 stage playing-input-handler))
+          ...)
+```
 
+## 2. Move Player using Object Orientation
+
+I designed functions around manipulating objects, such as the player object. The API naming conventions refer to object
+types and actions on those object types. 
 ```
-(define (move_walley s direction)
+(define (move-player s direction)
   (let ((posn-offset-x (cond ((eq? direction "right") STEP_SIZE_X)
                              ((eq? direction "left") (* -1 STEP_SIZE_X)) 
                              (else 0)))
@@ -56,33 +81,28 @@ The code uses three libraries:
                     direction
                     (player-lives (world-player s)))))
 ```
-## 3. Get Tile Function
-
+## 3. World Evolution using Recursion
+The world is initially created through a call to make-world. The last argument to make-world is a lamda function that itself calls make-world. The following code is executed when first entering the game screen.
 ```
-(define (get-tile t pos s)
-  (let* ((tiles (build-board (world-difficulty s)))
-         (tilesTopY (tiles-top-y tiles s))
-         (posY (posn-y pos))
-         (rowY (round (- posY tilesTopY)))
-         (colPerRow (/ (posn-x WINDOW) TILE_WIDTH))
-         (col (quotient (posn-x pos) TILE_WIDTH))
-         (row (round (/ rowY TILE_HEIGHT)))
-         (tileCount (length tiles))
-         (realIndex (+ (* row colPerRow) col)))
-    (if (and (>= realIndex 0) (< realIndex tileCount))
-        (list-ref tiles (inexact->exact (round realIndex)))
-        '())))
+(make-world 'start 0 (make-player 'swimming START "left" 3) (world-difficulty wrld) 0
+                          (make-stage 'start 1
+                                      (draw-enemies (world-difficulty wrld) 1 1)
+                                      happy-walley
+                                      draw-HUD 3 (world-difficulty wrld) 0)
+                                      (build-board (world-difficulty wrld))
+                                      (make-super-powers #f #f #f))
+                          playing-input-handler))
 ```
-Tiles Top Y:
+The next code snippet is executed by the playing-input-handler lambda function.
 ```
-(define (tiles-top-y t s)
-  (let* ((tilesPerRow (/ (posn-x WINDOW) TILE_WIDTH))
-        (rows (/ (length (build-board (world-difficulty s))) tilesPerRow))
-        (gridHeight (* rows TILE_HEIGHT)))
-    (- (- (posn-y WINDOW) (/ TILE_HEIGHT 2)) gridHeight)))
+((pad=? input "up")     (make-world 'playing time (move-player wrld "up")    difficulty_level score stage (world-inputHandler wrld)))
 ```
-
-## 4. Touching Spout Tile? Function
+## 4. Touching Spout Tile? Function using Data Abstraction
+Similar to the way object orientation was applied, data abstraction was used to insulate application code. In this case
+the API abstracts the data structure used to store the tiles. For example, touching-spout-tile? does not require the caller 
+to have any knowledge of whats in memory. Designing the API this way mitigates the cost of changing the internal data structures.
+For example, the tiles structures are currently stored in a single dimensional array and changing to a two dimensional array
+would not require modifications to any code calling touching-spout-tile?.
 
 ```
 (define (touching-spout-tile? s)
